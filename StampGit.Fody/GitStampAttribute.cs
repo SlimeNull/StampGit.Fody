@@ -5,8 +5,8 @@ using System.Text;
 namespace StampGit.Fody
 {
     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
-    public class CommitStampAttribute : Attribute
+    public class GitStampAttribute : Attribute
     {
-        public string ID { get; set; }
+        public string? ID { get; set; }
     }
 }

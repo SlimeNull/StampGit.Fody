@@ -4,7 +4,8 @@ using System.Linq;
 using System.Collections.Generic;
 using Mono.Cecil;
 using Mono.Collections.Generic;
-using System.Reflection;
+using System;
+using Mono.Cecil.Rocks;
 
 namespace StampGit.Fody
 {
@@ -62,19 +63,46 @@ namespace StampGit.Fody
 
         public override void Execute()
         {
-            if (GetRepoCommitId(ProjectFilePath) is not { } commitID)
+            var stampGitAssembly = ModuleDefinition.AssemblyResolver.Resolve(AssemblyNameReference.Parse("StampGit.Fody"));
+            var gitStampAttributeType = stampGitAssembly.MainModule.Types.First(v => v.Name == "GitStampAttribute");
+            var gitStampAttributeTypeCtor = gitStampAttributeType.GetConstructors().First();
+            ModuleDefinition.ImportReference(gitStampAttributeType);
+            ModuleDefinition.ImportReference(gitStampAttributeTypeCtor);
+
+            if (GetRepoCommitId(SolutionDirectoryPath) is not { } commitID)
             {
+                WriteMessage($"No commit", MessageImportance.High);
                 return;
             }
 
-            var commitStampAttribute = ModuleDefinition.Assembly.CustomAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == "StampGit.Fody.CommitStampAttribute");
-            if (commitStampAttribute is null)
+            foreach (var item in ModuleDefinition.Assembly.CustomAttributes)
             {
-                commitStampAttribute = new CustomAttribute()
+                WriteMessage($"CustomAttribute: {item.AttributeType}", MessageImportance.High);
             }
 
-            commitStampAttribute.Properties.Add(
-                new CustomAttributeNamedArgument("ID", new CustomAttributeArgument(ModuleDefinition.TypeSystem.String, commitID)));
+            var gitStampAttribute = ModuleDefinition.Assembly.CustomAttributes
+                .FirstOrDefault(attr => attr.AttributeType.FullName == "StampGit.Fody.GitStampAttribute");
+
+            if (gitStampAttribute is null)
+            {
+                // TODO: Member 'System.Void StampGit.Fody.GitStampAttribute::.ctor()' is declared in another module and needs to be imported
+                gitStampAttribute = new CustomAttribute(gitStampAttributeType.GetConstructors().First());
+                gitStampAttribute.Properties.Add(
+                    new CustomAttributeNamedArgument(nameof(GitStampAttribute.ID), new CustomAttributeArgument(ModuleDefinition.TypeSystem.String, commitID)));
+                ModuleDefinition.Assembly.CustomAttributes.Add(gitStampAttribute);
+                WriteMessage($"Add commit {commitID}", MessageImportance.High);
+            }
+            else
+            {
+                WriteMessage($"Change commit to {commitID}", MessageImportance.High);
+                if (gitStampAttribute.Properties.FirstOrDefault(v => v.Name == nameof(GitStampAttribute.ID)) is { } idProperty)
+                {
+                    gitStampAttribute.Properties.Remove(idProperty);
+                }
+                gitStampAttribute.Properties.Add(
+                    new CustomAttributeNamedArgument(nameof(GitStampAttribute.ID), new CustomAttributeArgument(ModuleDefinition.TypeSystem.String, commitID)));
+            }
+
 
         }
 
