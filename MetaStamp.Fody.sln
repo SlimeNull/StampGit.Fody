@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.13.35825.156
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceControlSummary.Fody", "StampGit.Fody\SourceControlSummary.Fody.csproj", "{E9A1B173-FACB-449B-8EC2-1A7AAEBA736B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaStamp.Fody", "StampGit.Fody\MetaStamp.Fody.csproj", "{E9A1B173-FACB-449B-8EC2-1A7AAEBA736B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决方案项", "{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}"
 EndProject

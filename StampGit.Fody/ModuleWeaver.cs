@@ -5,127 +5,15 @@ using Mono.Cecil.Cil;
 using Fody;
 using System.IO;
 using Mono.Cecil.Rocks;
+using System;
+using MetaStamp.Internal;
+using System.Runtime.InteropServices;
 
-namespace SourceControlSummary
+namespace MetaStamp
 {
     public class ModuleWeaver : BaseModuleWeaver
     {
-        private static string? GetRepoCommitId(string? path)
-        {
-            if (string.IsNullOrEmpty(path))
-            {
-                return null;
-            }
-
-            if (!Directory.Exists(path))
-            {
-                return null;
-            }
-
-            while (path != null)
-            {
-                string gitFolderPath = Path.Combine(path, ".git");
-                if (Directory.Exists(gitFolderPath))
-                {
-                    string headFilePath = Path.Combine(gitFolderPath, "HEAD");
-                    if (File.Exists(headFilePath))
-                    {
-                        string headContent = File.ReadAllText(headFilePath).Trim();
-                        if (headContent.StartsWith("ref:"))
-                        {
-                            string branchRef = headContent.Substring(5).Trim();
-                            string branchRefFilePath = Path.Combine(gitFolderPath, branchRef.Replace("/", Path.DirectorySeparatorChar.ToString()));
-                            if (File.Exists(branchRefFilePath))
-                            {
-                                return File.ReadAllText(branchRefFilePath).Trim();
-                            }
-                        }
-                        else
-                        {
-                            return headContent;
-                        }
-                    }
-                }
-                path = Directory.GetParent(path)?.FullName;
-            }
-
-            return null;
-        }
-
-        private static string? GetRepoBranchName(string? path)
-        {
-            if (string.IsNullOrEmpty(path))
-            {
-                return null;
-            }
-
-            if (!Directory.Exists(path))
-            {
-                return null;
-            }
-
-            while (path != null)
-            {
-                string gitFolderPath = Path.Combine(path, ".git");
-                if (Directory.Exists(gitFolderPath))
-                {
-                    string headFilePath = Path.Combine(gitFolderPath, "HEAD");
-                    if (File.Exists(headFilePath))
-                    {
-                        string headContent = File.ReadAllText(headFilePath).Trim();
-                        if (headContent.StartsWith("ref:"))
-                        {
-                            string branchRef = headContent.Substring(5).Trim();
-                            return branchRef.Split('/').Last(); // 返回分支名称
-                        }
-                    }
-                }
-
-                path = Directory.GetParent(path)?.FullName;
-            }
-
-            return null;
-        }
-
-        public override void Execute()
-        {
-            // 获取 Git 提交 ID 和分支名称
-            string? commitID = GetRepoCommitId(SolutionDirectoryPath);
-            string? branchName = GetRepoBranchName(SolutionDirectoryPath);
-
-            if (commitID == null && branchName == null)
-            {
-                WriteMessage("Unable to retrieve Git commit and branch information.", MessageImportance.High);
-                return;
-            }
-
-            foreach (var type in ModuleDefinition.Types)
-            {
-                foreach (var property in type.Properties)
-                {
-                    // 检查属性是否包含 GitCommitAttribute 或 GitBranchAttribute
-                    var customAttributes = property.CustomAttributes;
-
-                    var gitCommitAttribute = customAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == typeof(GitCommitAttribute).FullName);
-                    var gitBranchAttribute = customAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == typeof(GitBranchAttribute).FullName);
-
-                    // 如果找到一个自定义特性，修改 getter
-                    if (gitCommitAttribute != null && commitID != null)
-                    {
-                        WriteMessage($"Modifying property '{property.Name}' to return commit ID: {commitID}", MessageImportance.High);
-                        ModifyPropertyGetter(property, commitID);
-                    }
-
-                    if (gitBranchAttribute != null && branchName != null)
-                    {
-                        WriteMessage($"Modifying property '{property.Name}' to return branch name: {branchName}", MessageImportance.High);
-                        ModifyPropertyGetter(property, branchName);
-                    }
-                }
-            }
-        }
-
-        private void ModifyPropertyGetter(PropertyDefinition property, string returnValue)
+        private void ModifyPropertyGetter(PropertyDefinition property, Action<ILProcessor> procedure)
         {
             // 确保属性有 getter
             var getter = property.GetMethod;
@@ -139,11 +27,90 @@ namespace SourceControlSummary
             getter.Body = new MethodBody(getter);
             var ilProcessor = getter.Body.GetILProcessor();
 
-            // 注入 IL 指令来返回指定值
-            ilProcessor.Append(ilProcessor.Create(OpCodes.Ldstr, returnValue)); // 加载字符串值到栈
-            ilProcessor.Append(ilProcessor.Create(OpCodes.Ret));               // 返回栈上的值
+            procedure.Invoke(ilProcessor);
 
             getter.Body.OptimizeMacros();
+        }
+
+        private void ModifyPropertyGetter<T>(Action<TypeReference, ILProcessor> procedure)
+            where T : Attribute
+        {
+            foreach (var type in ModuleDefinition.Types)
+            {
+                foreach (var property in type.Properties)
+                {
+                    // 检查属性是否包含 GitCommitAttribute 或 GitBranchAttribute
+                    var customAttributes = property.CustomAttributes;
+                    var matchedAttribute = customAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == typeof(T).FullName);
+
+                    // 如果找到一个自定义特性，修改 getter
+                    if (matchedAttribute != null)
+                    {
+                        ModifyPropertyGetter(property, ilProcessor => procedure.Invoke(property.PropertyType, ilProcessor));
+                    }
+                }
+            }
+        }
+
+        private void ModifyPropertyGetter<T>(object? returnValue)
+            where T : Attribute
+        {
+            ModifyPropertyGetter<T>((type, ilProcessor) =>
+            {
+                object targetType = Convert.ChangeType(returnValue, Type.GetType(type.FullName));
+
+                Action<ILProcessor>? procedure = returnValue switch
+                {
+                    string strValue => ilProcessor =>
+                    {
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ldstr, strValue));
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ret));
+                    }
+                    ,
+
+                    int i32Value => ilProcessor =>
+                    {
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ldc_I4, i32Value));
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ret));
+                    }
+                    ,
+
+                    Enum enumValue => ilProcessor =>
+                    {
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ldc_I4, (int)returnValue));
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ret));
+                    }
+                    ,
+
+                    null => ilProcessor =>
+                    {
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ldnull));
+                        ilProcessor.Append(ilProcessor.Create(OpCodes.Ret));
+                    }
+                    ,
+
+                    _ => null,
+                };
+
+                if (procedure is null)
+                {
+                    return;
+                }
+
+                procedure.Invoke(ilProcessor);
+            });
+        }
+
+        public override void Execute()
+        {
+            string? commitID = GitUtils.GetRepoCommitId(SolutionDirectoryPath);
+            string? branchName = GitUtils.GetRepoBranchName(SolutionDirectoryPath);
+
+            ModifyPropertyGetter<GitCommitIDAttribute>(commitID);
+            ModifyPropertyGetter<GitBranchAttribute>(branchName);
+            ModifyPropertyGetter<BuildPlatformID>(Environment.OSVersion.Platform);
+            ModifyPropertyGetter<BuildOperationSystem>(Environment.OSVersion.VersionString);
+            ModifyPropertyGetter<BuildDateTime>(DateTime.Now.ToString());
         }
 
         public override IEnumerable<string> GetAssembliesForScanning()
