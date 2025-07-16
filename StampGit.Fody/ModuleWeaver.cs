@@ -85,8 +85,9 @@ namespace StampGit.Fody
 
             if (gitStampAttribute is null)
             {
-                // TODO: Member 'System.Void StampGit.Fody.GitStampAttribute::.ctor()' is declared in another module and needs to be imported
-                gitStampAttribute = new CustomAttribute(gitStampAttributeType.GetConstructors().First());
+                // Constructor reference for 'System.Void StampGit.Fody.GitStampAttribute::.ctor()' has been properly imported
+                var gitStampAttributeCtor = ModuleDefinition.ImportReference(gitStampAttributeType.GetConstructors().First());
+                gitStampAttribute = new CustomAttribute(gitStampAttributeCtor);
                 gitStampAttribute.Properties.Add(
                     new CustomAttributeNamedArgument(nameof(GitStampAttribute.ID), new CustomAttributeArgument(ModuleDefinition.TypeSystem.String, commitID)));
                 ModuleDefinition.Assembly.CustomAttributes.Add(gitStampAttribute);
