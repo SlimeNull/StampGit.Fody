@@ -5,6 +5,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RestoreSources>../MetaStamp/bin/$(Configuration)/</RestoreSources>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,15 +13,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FodyHelpers" Version="6.9.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StampGit.Fody\MetaStamp.Fody.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <WeaverFiles Include="$(SolutionDir)\StampGit.Fody\bin\$(Configuration)\netstandard2.0\MetaStamp.Fody.dll" />
+    <PackageReference Include="MetaStamp.Fody"  Version="1.0.0"/>
   </ItemGroup>
 
 </Project>

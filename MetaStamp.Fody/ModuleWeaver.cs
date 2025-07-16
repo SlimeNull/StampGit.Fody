@@ -32,8 +32,9 @@ namespace MetaStamp
             getter.Body.OptimizeMacros();
         }
 
-        private void ModifyPropertyGetter<T>(Action<TypeReference, ILProcessor> procedure)
-            where T : Attribute
+        private void ModifyPropertyGetter(
+            string attributeFullName,
+            Action<TypeReference, ILProcessor> procedure)
         {
             foreach (var type in ModuleDefinition.Types)
             {
@@ -41,7 +42,7 @@ namespace MetaStamp
                 {
                     // 检查属性是否包含 GitCommitAttribute 或 GitBranchAttribute
                     var customAttributes = property.CustomAttributes;
-                    var matchedAttribute = customAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == typeof(T).FullName);
+                    var matchedAttribute = customAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == attributeFullName);
 
                     // 如果找到一个自定义特性，修改 getter
                     if (matchedAttribute != null)
@@ -52,10 +53,11 @@ namespace MetaStamp
             }
         }
 
-        private void ModifyPropertyGetter<T>(object? returnValue)
-            where T : Attribute
+        private void ModifyPropertyGetter(
+            string attributeFullName,
+            object? returnValue)
         {
-            ModifyPropertyGetter<T>((type, ilProcessor) =>
+            ModifyPropertyGetter(attributeFullName, (type, ilProcessor) =>
             {
                 object targetType = Convert.ChangeType(returnValue, Type.GetType(type.FullName));
 
@@ -106,11 +108,11 @@ namespace MetaStamp
             string? commitID = GitUtils.GetRepoCommitId(SolutionDirectoryPath);
             string? branchName = GitUtils.GetRepoBranchName(SolutionDirectoryPath);
 
-            ModifyPropertyGetter<GitCommitIDAttribute>(commitID);
-            ModifyPropertyGetter<GitBranchAttribute>(branchName);
-            ModifyPropertyGetter<BuildPlatformID>(Environment.OSVersion.Platform);
-            ModifyPropertyGetter<BuildOperationSystem>(Environment.OSVersion.VersionString);
-            ModifyPropertyGetter<BuildDateTime>(DateTime.Now.ToString());
+            ModifyPropertyGetter("MetaStamp.GitCommitIDAttribute", commitID);
+            ModifyPropertyGetter("MetaStamp.GitBranchAttribute", branchName);
+            ModifyPropertyGetter("MetaStamp.BuildPlatformID", Environment.OSVersion.Platform);
+            ModifyPropertyGetter("MetaStamp.BuildOperationSystem", Environment.OSVersion.VersionString);
+            ModifyPropertyGetter("MetaStamp.BuildDateTime", DateTime.Now.ToString());
         }
 
         public override IEnumerable<string> GetAssembliesForScanning()

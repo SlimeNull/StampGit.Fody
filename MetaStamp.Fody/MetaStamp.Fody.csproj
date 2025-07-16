@@ -5,6 +5,7 @@
     <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>MetaStamp</RootNamespace>
+    <PackageId>MetaStamp.Fody</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
