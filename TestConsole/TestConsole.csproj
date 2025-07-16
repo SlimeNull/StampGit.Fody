@@ -16,11 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StampGit.Fody\StampGit.Fody.csproj" />
+    <ProjectReference Include="..\StampGit.Fody\SourceControlSummary.Fody.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <WeaverFiles Include="$(SolutionDir)\StampGit.Fody\bin\$(Configuration)\netstandard2.0\StampGit.Fody.dll" />
+    <WeaverFiles Include="$(SolutionDir)\StampGit.Fody\bin\$(Configuration)\netstandard2.0\SourceControlSummary.Fody.dll" />
   </ItemGroup>
 
 </Project>

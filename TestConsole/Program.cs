@@ -1,7 +1,17 @@
 ﻿
-using StampGit.Fody;
+using SourceControlSummary;
 
-[assembly: GitStamp(ID = "id")]
+internal class Program
+{
+    [GitCommit]
+    static string? CommitID { get; }
 
-// See https://aka.ms/new-console-template for more information
-Console.WriteLine("Hello, World!");
+    [GitBranch]
+    static string? Branch { get; }
+
+    private static void Main(string[] args)
+    {
+        Console.WriteLine("Hello, World!");
+        Console.WriteLine($"Git info, CommitID: {CommitID}, Branch: {Branch}");
+    }
+}
