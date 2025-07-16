@@ -71,7 +71,7 @@ namespace StampGit.Fody
 
             if (GetRepoCommitId(SolutionDirectoryPath) is not { } commitID)
             {
-                WriteMessage($"No commit", MessageImportance.High);
+                WriteMessage($"Unable to retrieve Git commit information from the repository at the specified path: {SolutionDirectoryPath}", MessageImportance.High);
                 return;
             }
 
